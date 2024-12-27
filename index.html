@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visor PDB en Three.js</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <input type="file" id="pdbFile" accept=".pdb" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.rawgit.com/mrdoob/three.js/r128/examples/js/loaders/PDBLoader.js"></script>
+    <script src="./OrbitControls.js"></script>
+    <!--incluir orbicontrols library  cdn-->
+    <script>
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        camera.position.z = 10;
+
+        const light = new THREE.DirectionalLight(0xffffff, 1);
+        light.position.set(1, 1, 1).normalize();
+        scene.add(light);
+
+        function loadPDB(pdbData) {
+
+            const loader = new THREE.PDBLoader();
+            const pdb = loader.parse(pdbData);
+
+            const geometryAtoms = pdb.geometryAtoms;
+			const geometryBonds = pdb.geometryBonds;
+
+            const json = pdb.json;
+
+
+            console.log(geometryAtoms);
+
+            console.log(geometryBonds);
+
+
+            const positionAtoms = geometryAtoms.getAttribute( 'position' );
+            const colorAtoms = geometryAtoms.getAttribute( 'color' );
+
+            const position = new THREE.Vector3();
+            const color = new THREE.Color();
+
+            for ( let i = 0; i < positionAtoms.count; i ++ ) {
+
+                position.fromBufferAttribute( positionAtoms, i );
+                color.fromBufferAttribute( colorAtoms, i );
+
+                
+                //crea esferas en la pocopm de los atomso
+                const sphereGeometry = new THREE.SphereGeometry(0.3, 32, 32);
+                const sphereMaterial = new THREE.MeshBasicMaterial({ color: color });
+                const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+
+
+
+                sphere.position.copy(position);
+                scene.add(sphere);
+
+
+            }
+
+            const positionBonds = geometryBonds.getAttribute( 'position' );
+
+            const start = new THREE.Vector3();
+            const end = new THREE.Vector3();
+
+
+            
+            //hay lineas que no reberian dibujarece
+            for (let i = 0; i < positionBonds.count; i += 2) {
+                start.fromBufferAttribute(positionBonds, i);
+                end.fromBufferAttribute(positionBonds, i + 1);
+
+                const direction = new THREE.Vector3().subVectors(end, start);
+                const origin = start;
+                const length = direction.length();
+                const hex = 0xffffff;
+
+                const geometry = new THREE.BufferGeometry();
+                const material = new THREE.LineBasicMaterial({ color: hex });
+
+                const vertices = new Float32Array([origin.x, origin.y, origin.z, end.x, end.y, end.z]);
+                geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+
+                const line = new THREE.Line(geometry, material);
+                scene.add(line);
+            }
+
+
+
+            
+        }
+
+        document.getElementById('pdbFile').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                const pdbData = e.target.result;
+                loadPDB(pdbData);
+            };
+
+            reader.readAsText(file);
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+            //controls.update();
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
